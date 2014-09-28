@@ -6,7 +6,7 @@
 ;; URL: https://github.com/istib/helm-aws
 ;; Version: 20140927.1504
 ;; X-Original-Version: 0.1
-;; Package-Requires: ((helm "1.5.3"))
+;; Package-Requires: ((helm "1.5.3") (dash . "2.2.0"))
 ;; Keywords:
 
 ;; This file is not part of GNU Emacs
@@ -33,6 +33,10 @@
 
 
 ;;; Code:
+
+(require 'helm)
+(require 'dash)
+(require 'term)
 (require 'json)
 
 (defvar aws-user-account
