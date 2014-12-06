@@ -4,8 +4,8 @@
 
 ;; Author: istib
 ;; URL: https://github.com/istib/helm-aws
-;; Version: 20140927.1504
-;; X-Original-Version: 0.1
+;; Version: 20141205.1
+;; X-Original-Version: 0.2
 ;; Package-Requires: ((helm "1.5.3"))
 ;; Keywords:
 
@@ -25,7 +25,9 @@
 ;; see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;;
+
+;; Manage AWS EC2 server instances directly from Emacs
+
 ;; A call to `helm-aws' will show a list of running instances on your configured
 ;; AWS account. Helm actions to launch a terminal, dired, or ping are accessible.
 ;; 
