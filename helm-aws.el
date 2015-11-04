@@ -6,7 +6,7 @@
 ;; URL: https://github.com/istib/helm-aws
 ;; Version: 20141205.1
 ;; X-Original-Version: 0.2
-;; Package-Requires: ((helm "1.5.3"))
+;; Package-Requires: ((helm "1.5.3")(cl-lib "0.5"))
 ;; Keywords:
 
 ;; This file is not part of GNU Emacs
@@ -36,6 +36,7 @@
 
 ;;; Code:
 (require 'json)
+(require 'cl-lib)
 
 (defvar aws-user-account
   "ubuntu"
@@ -71,8 +72,8 @@
 (defun aws-format-instance-string (instance)
   "Constructs a human-friendly string of a server instance - showing name, IP and launch date"
   (let* ((ip (plist-get instance :PrivateIpAddress))
-         (tags (elt (plist-get instance :Tags) 0))
-         (name (plist-get tags :Value))
+         (tags (plist-get instance :Tags))
+         (name (plist-get (elt (cl-remove-if-not #'(lambda (tag) (string= (plist-get tag :Key) "Name")) tags) 0) :Value))
          (launch-time (plist-get instance :LaunchTime))
          (launch-date (car (split-string launch-time "T"))))
     (concat name " - " ip " - " launch-date)))
