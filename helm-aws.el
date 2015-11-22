@@ -69,6 +69,14 @@
          (code (plist-get state :Code)))
     (eq code 16)))
 
+(defun aws-ellipsify (str len)
+  "Truncate STR at LEN chars then add right padded spaces up to LEN + 3 (for the ellipsis)"
+  (let* ((truncated (if (> (length str) len) (concat (substring str 0 len) "...") str))
+         (new-len (format "%d" (+ len 3)))
+         (formatter-str (concat "%-" new-len "s"))
+         (block-str (format formatter-str truncated)))
+    block-str))
+
 (defun aws-format-instance-string (instance)
   "Constructs a human-friendly string of a server instance - showing name, IP and launch date"
   (let* ((ip (plist-get instance :PrivateIpAddress))
@@ -77,7 +85,7 @@
          (name (if (= (length nameTag) 1) (plist-get (elt nameTag 0) :Value) ip))
          (launch-time (plist-get instance :LaunchTime))
          (launch-date (car (split-string launch-time "T"))))
-    (concat name " - " ip " - " launch-date)))
+    (concat (aws-ellipsify name 30) " - " (format "%15s" ip) " - " launch-date)))
 
 (defun aws-get-ip-from-instance-string (instance-str)
   "extracts IP address back from constructed string"
