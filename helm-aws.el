@@ -6,7 +6,7 @@
 ;; URL: https://github.com/istib/helm-aws
 ;; Version: 20141205.1
 ;; X-Original-Version: 0.2
-;; Package-Requires: ((helm "1.5.3")(cl-lib "0.5"))
+;; Package-Requires: ((helm "1.5.3")(cl-lib "0.5")(s "1.9.0"))
 ;; Keywords:
 
 ;; This file is not part of GNU Emacs
@@ -37,6 +37,7 @@
 ;;; Code:
 (require 'json)
 (require 'cl-lib)
+(require 's)
 
 (defvar aws-user-account
   "ubuntu"
@@ -69,14 +70,6 @@
          (code (plist-get state :Code)))
     (eq code 16)))
 
-(defun aws-ellipsify (str len)
-  "Truncate STR at LEN chars then add right padded spaces up to LEN + 3 (for the ellipsis)"
-  (let* ((truncated (if (> (length str) len) (concat (substring str 0 len) "...") str))
-         (new-len (format "%d" (+ len 3)))
-         (formatter-str (concat "%-" new-len "s"))
-         (block-str (format formatter-str truncated)))
-    block-str))
-
 (defun aws-format-instance-string (instance)
   "Constructs a human-friendly string of a server instance - showing name, IP and launch date"
   (let* ((ip (plist-get instance :PrivateIpAddress))
@@ -85,7 +78,7 @@
          (name (if (= (length nameTag) 1) (plist-get (elt nameTag 0) :Value) ip))
          (launch-time (plist-get instance :LaunchTime))
          (launch-date (car (split-string launch-time "T"))))
-    (concat (aws-ellipsify name 30) " - " (format "%15s" ip) " - " launch-date)))
+    (concat (format "%-30s" (s-truncate 30 name)) " - " (format "%15s" ip) " - " launch-date)))
 
 (defun aws-get-ip-from-instance-string (instance-str)
   "extracts IP address back from constructed string"
