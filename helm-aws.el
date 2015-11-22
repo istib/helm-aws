@@ -73,7 +73,8 @@
   "Constructs a human-friendly string of a server instance - showing name, IP and launch date"
   (let* ((ip (plist-get instance :PrivateIpAddress))
          (tags (plist-get instance :Tags))
-         (name (plist-get (elt (cl-remove-if-not #'(lambda (tag) (string= (plist-get tag :Key) "Name")) tags) 0) :Value))
+         (nameTag (cl-remove-if-not #'(lambda (tag) (string= (plist-get tag :Key) "Name")) tags))
+         (name (if (= (length nameTag) 1) (plist-get (elt nameTag 0) :Value) ip))
          (launch-time (plist-get instance :LaunchTime))
          (launch-date (car (split-string launch-time "T"))))
     (concat name " - " ip " - " launch-date)))
