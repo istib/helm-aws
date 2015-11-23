@@ -29,7 +29,7 @@
 ;; Manage AWS EC2 server instances directly from Emacs
 
 ;; A call to `helm-aws' will show a list of running instances on your configured
-;; AWS account. Helm actions to launch a terminal, dired, or ping are accessible.
+;; AWS account.  Helm actions to launch a terminal, dired, or ping are accessible.
 ;; 
 ;; Requires a configured installation of AWS command-line interface (http://aws.amazon.com/cli/)
 
@@ -41,21 +41,22 @@
 
 (defvar aws-user-account
   "ubuntu"
-  "User account name for AWS servers. Assuming that your PEM keys are placed on each instance")
+  "User account name for AWS servers.  Assuming that your PEM keys are placed on each instance.")
 
 (defvar aws-ec2-command
   "aws ec2 describe-instances"
-  "Command to list instances. Run `aws configure` to set up AWS cli")
+  "Command to list instances.  Run `aws configure` to set up AWS cli.")
 
 (defun aws-run-ec2-command ()
-  "returns json"
+  "Return the full json from running describe-instances."
   (let ((aws-result-buffer (generate-new-buffer-name "*aws-ec2*")))
     (with-temp-buffer
       (shell-command aws-ec2-command (current-buffer) nil)
       (buffer-substring-no-properties (point-min) (point-max)))))
 
 (defun aws-parse-server-list (input)
-  ""
+  "Extract instances from describe-instances.
+Argument INPUT json input in string form."
   (let* ((json-object-type 'plist)
          (aws-json         (json-read-from-string input))
          (reservations     (plist-get aws-json :Reservations))
@@ -65,35 +66,40 @@
     instance-list))
 
 (defun aws-is-instance-active-p (instance)
-  "predicate that determines whether the given instance is running"
+  "Predicate that determines whether the given INSTANCE is running."
   (let* ((state (plist-get instance :State))
          (code (plist-get state :Code)))
     (eq code 16)))
 
-(defun aws-format-instance-string (instance)
-  "Constructs a human-friendly string of a server instance - showing name, IP and launch date"
+(defun aws-format-instance-helm-row (instance)
+  "Constructs a human-friendly string of a server instance.
+show: <name>, <IP> and <launch date>.
+Argument INSTANCE is the aws json in plist form"
   (let* ((ip (plist-get instance :PrivateIpAddress))
          (tags (plist-get instance :Tags))
          (nameTag (cl-remove-if-not #'(lambda (tag) (string= (plist-get tag :Key) "Name")) tags))
          (name (if (= (length nameTag) 1) (plist-get (elt nameTag 0) :Value) ip))
          (launch-time (plist-get instance :LaunchTime))
-         (launch-date (car (split-string launch-time "T"))))
-    (concat (format "%-30s" (s-truncate 30 name)) " - " (format "%15s" ip) " - " launch-date)))
+         (launch-date (car (split-string launch-time "T")))
+         (formatted-string (concat (format "%-30s" (s-truncate 30 name)) " - " (format "%15s" ip) " - " launch-date)))
+    (cons formatted-string instance)
+    ))
 
-(defun aws-get-ip-from-instance-string (instance-str)
-  "extracts IP address back from constructed string"
-  (let* ((components (split-string instance-str " - ")))
-    (cadr components)))
+(defun aws-get-ip-from-instance (instance-json)
+  "Extracts IP address from INSTANCE-JSON."
+  (plist-get instance-json :PrivateIpAddress))
 
 (defun aws-get-active-instances ()
-  "used to populate list in helm-aws"
+  "Used to populate data for `helm-aws'."
   (let* ((aws-result       (aws-run-ec2-command))
          (instance-list    (aws-parse-server-list aws-result))
-         (active-instances (-filter 'aws-is-instance-active-p instance-list)))
-    (mapcar 'aws-format-instance-string active-instances)))
+         (active-instances (-filter 'aws-is-instance-active-p instance-list))
+         (active-instances (mapcar 'aws-format-instance-helm-row active-instances)))
+    active-instances))
 
 (defun aws-ssh-into-instance (ip-address)
-  "Use SSH to connect to remote instance"
+  "Use SSH to connect to remote instance.
+Argument IP-ADDRESS is the ip address for the instance you want ssh to."
   (let ((switches (list ip-address "-l" aws-user-account)))
     (set-buffer (apply 'make-term "ssh" "ssh" nil switches))
     (term-mode)
@@ -101,26 +107,50 @@
     (switch-to-buffer "*ssh*")))
 
 (defun aws-find-file-on-instance (ip-address)
-  "Use dired to access directory structure of remote instance"
+  "Use dired to access directory structure of remote instance.
+Argument IP-ADDRESS is the ip address for the instance you want to run `find-file' on."
   (let ((path (concat "/ssh:" aws-user-account "@" ip-address ":")))
     (find-file path)))
 
+(defun aws-instance-details (instance-json)
+  "Dump the instance json into a buffer *aws-details*.
+Argument INSTANCE-JSON is the json behind the row of helm data."
+  (interactive)
+  (let* ((json-encoding-pretty-print t)
+         (json (json-encode instance-json)))
+    (switch-to-buffer (get-buffer-create "*aws-details*"))
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (delete-other-windows)
+      (insert json)
+      (beginning-of-buffer)
+      (set-buffer-modified-p nil)
+      (view-mode)
+      (message "Press q to quit."))))
 
 ;;;###autoload
 (defun helm-aws ()
+  "Show helm with a table of aws information."
   (interactive)
   (let ((choices (aws-get-active-instances)))
     (helm
+     :buffer "*helm-aws*"
      :sources '((name . "EC2 Instances")
                 (candidates . choices)
-                (action . (("SSH"                   . (lambda (instance-str)
-                                                        (aws-ssh-into-instance (aws-get-ip-from-instance-string instance-str))))
-                           ("Dired"                 . (lambda (instance-str)
-                                                        (aws-find-file-on-instance (aws-get-ip-from-instance-string instance-str))))
-                           ("Ping"                  . (lambda (instance-str)
-                                                        (ping (aws-get-ip-from-instance-string instance-str))))
-                           ("Insert IP into buffer" . (lambda (instance-str)
-                                                        (insert (aws-get-ip-from-instance-string instance-str))))))))))
+                (action . (("SSH" .
+                            (lambda (instance-json)
+                              (aws-ssh-into-instance (aws-get-ip-from-instance instance-json))))
+                           ("Dired" .
+                            (lambda (instance-json)
+                              (aws-find-file-on-instance (aws-get-ip-from-instance instance-json))))
+                           ("Ping" .
+                            (lambda (instance-json)
+                              (ping (aws-get-ip-from-instance instance-json))))
+                           ("Insert IP into buffer" .
+                            (lambda (instance-json)
+                              (insert (aws-get-ip-from-instance instance-json))))
+                           ("Save instance json to buffer" . aws-instance-details)
+                           ))))))
 
 (provide 'helm-aws)
 
