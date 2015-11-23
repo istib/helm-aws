@@ -76,26 +76,36 @@ Argument INPUT json input in string form."
 show: <name>, <IP> and <launch date>.
 Argument INSTANCE is the aws json in plist form"
   (let* ((ip (plist-get instance :PrivateIpAddress))
+         (instance-id (plist-get instance :InstanceId))
+         (instance-state (plist-get (plist-get instance :State) :Name))
          (tags (plist-get instance :Tags))
          (nameTag (cl-remove-if-not #'(lambda (tag) (string= (plist-get tag :Key) "Name")) tags))
-         (name (if (= (length nameTag) 1) (plist-get (elt nameTag 0) :Value) ip))
+         (name (if (= (length nameTag) 1) (plist-get (elt nameTag 0) :Value) instance-id))
          (launch-time (plist-get instance :LaunchTime))
          (launch-date (car (split-string launch-time "T")))
-         (formatted-string (concat (format "%-30s" (s-truncate 30 name)) " - " (format "%15s" ip) " - " launch-date)))
-    (cons formatted-string instance)
-    ))
+         (formatted-string
+          (concat (format "%-30s" (s-truncate 30 name)) " | "
+                  (format "%15s" ip) " | "
+                  (format "%-10s" instance-state) " | "
+                  launch-date)))
+    (cons formatted-string instance)))
 
 (defun aws-get-ip-from-instance (instance-json)
   "Extracts IP address from INSTANCE-JSON."
   (plist-get instance-json :PrivateIpAddress))
 
+(defun aws-sort-helm-rows (a b)
+  "Compare results from `aws-format-instance-helm-row' A and B."
+  (string< (downcase (car a)) (downcase (car b))))
+
 (defun aws-get-active-instances ()
   "Used to populate data for `helm-aws'."
   (let* ((aws-result       (aws-run-ec2-command))
          (instance-list    (aws-parse-server-list aws-result))
-         (active-instances (-filter 'aws-is-instance-active-p instance-list))
-         (active-instances (mapcar 'aws-format-instance-helm-row active-instances)))
-    active-instances))
+         (instance-list (mapcar 'aws-format-instance-helm-row instance-list))
+         (instance-list (sort instance-list 'aws-sort-helm-rows))
+         )
+    instance-list))
 
 (defun aws-ssh-into-instance (ip-address)
   "Use SSH to connect to remote instance.
@@ -128,6 +138,15 @@ Argument INSTANCE-JSON is the json behind the row of helm data."
       (view-mode)
       (message "Press q to quit."))))
 
+(defun aws-instance-toggle-stop-start (instance-json)
+  "Toggle the instance state for INSTANCE-JSON.
+If it is stopped, start it.  If it is running, stop it."
+  (let* ((instance-id (plist-get instance-json :InstanceId))
+         (instance-state (plist-get (plist-get instance-json :State) :Name))
+         (toggle-action (if (string= instance-state "running") "stop-instances" "start-instances"))
+         (command (format "aws ec2 %s --instance-ids %s" toggle-action instance-id)))
+    (compile command)))
+
 ;;;###autoload
 (defun helm-aws ()
   "Show helm with a table of aws information."
@@ -150,7 +169,7 @@ Argument INSTANCE-JSON is the json behind the row of helm data."
                             (lambda (instance-json)
                               (insert (aws-get-ip-from-instance instance-json))))
                            ("Save instance json to buffer" . aws-instance-details)
-                           ))))))
+                           ("Toggle Stop/Start instance" . aws-instance-toggle-stop-start)))))))
 
 (provide 'helm-aws)
 
