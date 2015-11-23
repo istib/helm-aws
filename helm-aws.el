@@ -133,7 +133,7 @@ Argument INSTANCE-JSON is the json behind the row of helm data."
       (erase-buffer)
       (delete-other-windows)
       (insert json)
-      (beginning-of-buffer)
+      (goto-char (point-min))
       (set-buffer-modified-p nil)
       (view-mode)
       (message "Press q to quit."))))
