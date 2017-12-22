@@ -39,6 +39,30 @@
 (require 'cl-lib)
 (require 's)
 
+(defgroup helm-aws-faces nil
+  "Customize the appearance of helm-aws."
+  :prefix "helm-"
+  :group 'helm-aws
+  :group 'helm-faces)
+
+(defface helm-aws-instance-state-running
+  '((t :inherit font-lock-builtin-face))
+  "Face used for running instances in `helm-aws'."
+  :group 'helm-aws-faces)
+
+(defface helm-aws-instance-state-stopped
+  '((t :inherit font-lock-comment-face
+       :slant italic
+       :foreground "red"))
+  "Face used for stopped instances in `helm-aws'."
+  :group 'helm-aws-faces)
+
+(defface helm-aws-instance-state-terminated
+  '((t :inherit font-lock-comment-face
+       :strike-through t))
+  "Face used for terminated instances in `helm-aws'."
+  :group 'helm-aws-faces)
+
 (defvar aws-user-account
   "ubuntu"
   "User account name for AWS servers.  Assuming that your PEM keys are placed on each instance.")
@@ -84,10 +108,15 @@ Argument INSTANCE is the aws json in plist form"
          (launch-time (plist-get instance :LaunchTime))
          (launch-date (car (split-string launch-time "T")))
          (formatted-string
-          (concat (format "%-30s" (s-truncate 30 name)) " | "
-                  (format "%15s" ip) " | "
-                  (format "%-10s" instance-state) " | "
-                  launch-date)))
+          (concat
+           (propertize (format "%-30s" (s-truncate 30 name))
+                       'face (cond ((string= instance-state "stopped")
+                                    'helm-aws-instance-state-stopped)
+                                   ((string= instance-state "terminated")
+                                    'helm-aws-instance-state-terminated)
+                                   (t 'helm-aws-instance-state-running)))
+           " | " (format "%15s" (or ip ""))
+           " | " launch-date)))
     (cons formatted-string instance)))
 
 (defun aws-get-ip-from-instance (instance-json)
