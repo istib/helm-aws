@@ -138,6 +138,11 @@ Argument INSTANCE-JSON is the json behind the row of helm data."
       (view-mode)
       (message "Press q to quit."))))
 
+(defun aws-compile (command &optional comint)
+  "Invoke the compile function without saving buffers."
+  (let ((compilation-save-buffers-predicate '(lambda () nil)))
+    (compile command comint)))
+
 (defun aws-instance-toggle-stop-start (instance-json)
   "Toggle the instance state for INSTANCE-JSON.
 If it is stopped, start it.  If it is running, stop it."
@@ -145,7 +150,7 @@ If it is stopped, start it.  If it is running, stop it."
          (instance-state (plist-get (plist-get instance-json :State) :Name))
          (toggle-action (if (string= instance-state "running") "stop-instances" "start-instances"))
          (command (format "aws ec2 %s --instance-ids %s" toggle-action instance-id)))
-    (compile command)))
+    (aws-compile command)))
 
 ;;;###autoload
 (defun helm-aws ()
