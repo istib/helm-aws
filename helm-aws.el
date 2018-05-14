@@ -188,8 +188,8 @@ If it is stopped, start it.  If it is running, stop it."
   (let ((choices (aws-get-active-instances)))
     (helm
      :buffer "*helm-aws*"
-     :sources '((name . "EC2 Instances")
-                (candidates . choices)
+     :sources `((name . "EC2 Instances")
+                (candidates . ,choices)
                 (action . (("SSH" .
                             (lambda (instance-json)
                               (aws-ssh-into-instance (aws-get-ip-from-instance instance-json))))
